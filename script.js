@@ -644,6 +644,10 @@ function resetCode() {
             <h2>开始学习</h2>
             <p>修改左侧代码，然后点击运行按钮查看效果!</p>
         </div>
+        <div class="card">
+            <h2>参考示例</h2>
+            <p>点击导航栏学习示例参考学习!</p>
+        </div>
     </div>
 </body>
 </html>`;
@@ -697,4 +701,5 @@ function loadFromStorage() {
 }
 
 // 初始化本地存储功能
+
 loadFromStorage();
