@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML初学者学习平台</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .code-editor {
+            font-family: 'Courier New', monospace;
+            tab-size: 4;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .preview-frame {
+            min-height: 600px; /* 加长预览区 */
+            border: 1px solid #e5e7eb;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* 拖拽条样式 */
+        .resizer {
+            width: 4px;
+            cursor: col-resize;
+            background-color: #e5e7eb;
+            height: 100%;
+            margin: 0 4px;
+            border-radius: 2px;
+            transition: background-color 0.3s;
+        }
+        .resizer:hover {
+            background-color: #9ca3af;
+        }
+        
+        /* 编辑区容器 */
+        .editor-container {
+            display: flex;
+            width: 100%;
+            overflow: hidden;
+            height: calc(100vh - 220px); /* 加长编辑区和预览区 */
+        }
+        .editor-panel {
+            flex: 1;
+            min-width: 300px;
+            max-width: calc(100% - 300px);
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-panel {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 全屏预览模态框样式 */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            transition: background-color 0.3s;
+        }
+        .modal-content {
+            background-color: white;
+            width: 90%;
+            height: 80%;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            resize: both;
+            min-width: 600px;
+            min-height: 400px;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .modal-header {
+            padding: 12px 20px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .modal-body {
+            flex: 1;
+            overflow: hidden;
+        }
+        .modal-preview {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .resize-handle {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 15px;
+            height: 15px;
+            cursor: nwse-resize;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M10 0L0 10M10 10L0 0' stroke='%23ccc' stroke-width='1'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: bottom right;
+        }
+        
+        /* 编辑区全屏样式 */
+        .fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            margin: 0;
+            border-radius: 0;
+            padding: 20px;
+        }
+        .fullscreen-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1001;
+        }
+        
+        /* 主题样式 - 影响整个页面 */
+        /* 语法高亮基础样式 */
+        .html-tag { font-weight: bold; }
+        .html-attr { font-style: italic; }
+        .html-value { }
+        .html-comment { opacity: 0.7; }
+        .html-special { }
+        .css-property { }
+        .css-value { }
+        .css-selector { font-weight: bold; }
+        
+        /* 浅色主题 */
+        .theme-light {
+            background-color: #f9fafb;
+            color: #111827;
+        }
+        .theme-light .bg-white { background-color: #ffffff; }
+        .theme-light .text-gray-800 { color: #1f2937; }
+        .theme-light .text-gray-700 { color: #374151; }
+        .theme-light .text-gray-600 { color: #4b5563; }
+        .theme-light .text-gray-500 { color: #6b7280; }
+        .theme-light .border { border-color: #e5e7eb; }
+        .theme-light .bg-blue-50 { background-color: #eff6ff; }
+        .theme-light .border-blue-200 { border-color: #bfdbfe; }
+        .theme-light .text-blue-800 { color: #1e40af; }
+        .theme-light .text-blue-700 { color: #1d4ed8; }
+        .theme-light .code-editor { background-color: #f8fafc; }
+        .theme-light .modal-backdrop { background-color: rgba(0, 0, 0, 0.7); }
+        /* 浅色主题语法高亮 */
+        .theme-light .html-tag { color: #0033b3; }
+        .theme-light .html-attr { color: #795e26; }
+        .theme-light .html-value { color: #c41a16; }
+        .theme-light .html-comment { color: #008000; }
+        .theme-light .html-special { color: #cd3131; }
+        .theme-light .css-property { color: #0779e4; }
+        .theme-light .css-value { color: #e25500; }
+        .theme-light .css-selector { color: #6b0093; }
+        
+        /* 深色主题 */
+        .theme-dark {
+            background-color: #111827;
+            color: #f3f4f6;
+        }
+        .theme-dark .bg-white { background-color: #1f2937; }
+        .theme-dark .text-gray-800 { color: #f9fafb; }
+        .theme-dark .text-gray-700 { color: #f3f4f6; }
+        .theme-dark .text-gray-600 { color: #e5e7eb; }
+        .theme-dark .text-gray-500 { color: #d1d5db; }
+        .theme-dark .border { border-color: #374151; }
+        .theme-dark .bg-blue-50 { background-color: #1e3a8a; }
+        .theme-dark .border-blue-200 { border-color: #3b82f6; }
+        .theme-dark .text-blue-800 { color: #93c5fd; }
+        .theme-dark .text-blue-700 { color: #bfdbfe; }
+        .theme-dark .code-editor { background-color: #0f172a; }
+        .theme-dark .modal-backdrop { background-color: rgba(0, 0, 0, 0.9); }
+        /* 深色主题语法高亮 */
+        .theme-dark .html-tag { color: #38b2ac; }
+        .theme-dark .html-attr { color: #a78bfa; }
+        .theme-dark .html-value { color: #fcd34d; }
+        .theme-dark .html-comment { color: #6b7280; }
+        .theme-dark .html-special { color: #f87171; }
+        .theme-dark .css-property { color: #60a5fa; }
+        .theme-dark .css-value { color: #a7f3d0; }
+        .theme-dark .css-selector { color: #c084fc; }
+        
+        /* 明亮主题 */
+        .theme-solarized {
+            background-color: #fdf6e3;
+            color: #586e75;
+        }
+        .theme-solarized .bg-white { background-color: #eee8d5; }
+        .theme-solarized .text-gray-800 { color: #073642; }
+        .theme-solarized .text-gray-700 { color: #586e75; }
+        .theme-solarized .text-gray-600 { color: #657b83; }
+        .theme-solarized .text-gray-500 { color: #839496; }
+        .theme-solarized .border { border-color: #93a1a1; }
+        .theme-solarized .bg-blue-50 { background-color: #e6edf3; }
+        .theme-solarized .border-blue-200 { border-color: #9cc0e7; }
+        .theme-solarized .text-blue-800 { color: #003366; }
+        .theme-solarized .text-blue-700 { color: #004488; }
+        .theme-solarized .code-editor { background-color: #fdf6e3; }
+        .theme-solarized .modal-backdrop { background-color: rgba(131, 148, 150, 0.7); }
+        /* 明亮主题语法高亮 */
+        .theme-solarized .html-tag { color: #268bd2; }
+        .theme-solarized .html-attr { color: #859900; }
+        .theme-solarized .html-value { color: #dc322f; }
+        .theme-solarized .html-comment { color: #6c71c4; }
+        .theme-solarized .html-special { color: #cb4b16; }
+        .theme-solarized .css-property { color: #2aa198; }
+        .theme-solarized .css-value { color: #d33682; }
+        .theme-solarized .css-selector { color: #859900; }
+        
+
+        .hljs-tag { color: #22863a; }
+        .hljs-attr { color: #6f42c1; }
+        .hljs-string { color: #032f62; }
+        .hljs-comment { color: #6a737d; }
+
+        /* 响应式布局优化 */
+        @media (max-width: 768px) {
+            .editor-container {
+                flex-direction: column;
+                height: auto;
+                min-height: 800px;
+            }
+            .resizer {
+                width: 100%;
+                height: 4px;
+                margin: 4px 0;
+                cursor: row-resize;
+            }
+            .editor-panel, .preview-panel {
+                max-width: 100%;
+                width: 100%;
+                height: 400px;
+            }
+            .preview-frame {
+                min-height: 350px;
+            }
+            .modal-content {
+                min-width: 90%;
+                min-height: 300px;
+            }
+            .mobile-menu {
+                display: none;
+                flex-direction: column;
+                gap: 10px;
+                margin-top: 10px;
+            }
+            .mobile-menu.show {
+                display: flex;
+            }
+        }
+        @media (max-width: 480px) {
+            .grid-cols-1 md:grid-cols-2 lg:grid-cols-3 {
+                grid-template-columns: 1fr;
+            }
+            nav .flex {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body class="theme-light transition-colors duration-300">
+    <!-- 导航栏 -->
+    <nav class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold">
+                    <i class="fas fa-code mr-2"></i>HTML学习平台
+                </h1>
+                
+                <!-- 桌面端导航 -->
+                <div class="hidden md:flex space-x-4">
+                    <button class="hover:text-blue-200 transition" onclick="showSection('editor')" aria-label="代码编辑器">
+                        <i class="fas fa-edit mr-1"></i>代码编辑器
+                    </button>
+                    <button class="hover:text-blue-200 transition" onclick="showSection('examples')" aria-label="学习示例">
+                        <i class="fas fa-book mr-1"></i>学习示例
+                    </button>
+                    <button class="hover:text-blue-200 transition" onclick="showSection('resources')" aria-label="学习资源">
+                        <i class="fas fa-link mr-1"></i>学习资源
+                    </button>
+                    <!-- 主题切换按钮 -->
+                    <div class="inline-block">
+                        <select id="theme-selector" class="bg-gray-700 text-white rounded p-1 text-sm">
+                            <option value="light">浅色主题</option>
+                            <option value="dark">深色主题</option>
+                            <option value="solarized">明亮主题</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- 移动端菜单按钮 -->
+                <button id="menu-toggle" class="md:hidden hover:text-blue-200 transition" aria-label="菜单">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 移动端导航菜单 -->
+            <!--div id="mobile-menu" class="mobile-menu">
+                <button class="hover:text-blue-200 transition text-left" onclick="showSection('editor')" aria-label="代码编辑器">
+                    <i class="fas fa-edit mr-1"></i>代码编辑器
+                </button>
+                <button class="hover:text-blue-200 transition text-left" onclick="showSection('examples')" aria-label="学习示例">
+                    <i class="fas fa-book mr-1"></i>学习示例
+                </button>
+                <button class="hover:text-blue-200 transition text-left" onclick="showSection('resources')" aria-label="学习资源">
+                    <i class="fas fa-link mr-1"></i>学习资源
+                </button>
+                <div class="inline-block">
+                    <select id="mobile-theme-selector" class="bg-gray-700 text-white rounded p-1 text-sm">
+                        <option value="light">浅色主题</option>
+                        <option value="dark">深色主题</option>
+                        <option value="solarized">明亮主题</option>
+                    </select>
+                </div>
+            </div -->
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 代码编辑器区域 -->
+        <section id="editor-section" class="fade-in">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-8 transition-colors duration-300">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 transition-colors duration-300">
+                    <i class="fas fa-laptop-code mr-2"></i>在线HTML编辑器
+                </h2>
+                
+                <!-- 使用flex布局和拖条分隔编辑区和预览区 -->
+                <div class="editor-container">
+                    <!-- 代码输入区域 -->
+                    <div class="editor-panel" id="editor-panel">
+                        <div class="flex flex-wrap justify-between items-center mb-2 gap-2">
+                            <label class="text-sm font-semibold text-gray-700 transition-colors duration-300">HTML代码:</label>
+                            <div class="space-x-2">
+                                <!-- button onclick="formatCode()" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                                    <i class="fas fa-indent mr-1"></i>格式化
+                                </button -->
+                                <button onclick="resetCode()" class="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
+                                    <i class="fas fa-redo mr-1"></i>重置
+                                </button>
+                                <button onclick="downloadCode()" class="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600">
+                                    <i class="fas fa-download mr-1"></i>下载
+                                </button>
+                                <button onclick="toggleEditorFullscreen()" class="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
+                                    <i class="fas fa-expand mr-1"></i>全屏编辑
+                                </button>
+                                <button onclick="runCode()" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
+                                    <i class="fas fa-play mr-1"></i>运行
+                                </button>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-500 mb-2 transition-colors duration-300">
+                            <i class="fas fa-keyboard mr-1"></i>快捷键: Ctrl+Enter 运行代码 | 自动保存已启用
+                        </div>
+                        <textarea id="html-code" class="code-editor w-full flex-grow p-4 border rounded-lg resize-none overflow-auto" spellcheck="false">
+<!DOCTYPE html>
+<html>
+<head>
+    <title>我的第一个网页</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>欢迎学习HTML!</h1>
+        <div class="card">
+            <h2>HTML是什么?</h2>
+            <p>HTML是网页的基础构建语言，用于创建网页结构。</p>
+        </div>
+        <div class="card">
+            <h2>开始学习</h2>
+            <p>修改左侧代码，然后点击运行按钮查看效果!</p>
+        </div>
+        <div class="card">
+            <h2>参考示例</h2>
+            <p>点击导航栏学习示例参考学习!</p>
+        </div>
+    </div>
+</body>
+</html>
+                        </textarea>
+                        
+                        <!-- 代码提示 -->
+                        <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 transition-colors duration-300">
+                            <h3 class="font-semibold text-blue-800 mb-2 transition-colors duration-300">
+                                <i class="fas fa-lightbulb mr-1"></i>小贴士
+                            </h3>
+                            <ul class="text-sm text-blue-700 list-disc list-inside space-y-1 transition-colors duration-300">
+                                <li>使用 &lt;h1&gt; 到 &lt;h6&gt; 标签创建标题</li>
+                                <li>使用 &lt;p&gt; 标签创建段落</li>
+                                <li>使用 &lt;div&gt; 标签创建容器</li>
+                                <li>修改CSS样式来改变外观</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- 拖拽条 -->
+                    <div class="resizer" id="resizer"></div>
+                    
+                    <!-- 预览区域 -->
+                    <div class="preview-panel" id="preview-panel">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-sm font-semibold text-gray-700 transition-colors duration-300">实时预览:</label>
+                            <button onclick="openPreviewFullscreen()" class="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600">
+                                <i class="fas fa-expand mr-1"></i>全屏预览
+                            </button>
+                        </div>
+                        <div id="preview" class="preview-frame w-full flex-grow bg-white rounded-lg border p-4 overflow-auto">
+                            <!-- 预览内容将通过JavaScript动态加载 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 学习示例区域 -->
+        <section id="examples-section" class="hidden fade-in">
+            <div class="bg-white rounded-lg shadow-lg p-6 transition-colors duration-300">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 transition-colors duration-300">
+                    <i class="fas fa-graduation-cap mr-2"></i>HTML学习示例
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- 示例1 -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer transform hover:-translate-y-1" onclick="loadExample(1)">
+                        <div class="bg-gradient-to-r from-blue-400 to-purple-500 text-white p-3 rounded-lg mb-3">
+                            <i class="fas fa-heading text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg mb-2 transition-colors duration-300">标题和段落</h3>
+                        <p class="text-gray-600 text-sm transition-colors duration-300">学习使用h1-h6和p标签</p>
+                        <img src="https://picsum.photos/300/150?random=10" alt="标题和段落示例预览" class="w-full h-24 object-cover rounded mt-2 border">
+                    </div>
+                    
+                    <!-- 示例2 -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer transform hover:-translate-y-1" onclick="loadExample(2)">
+                        <div class="bg-gradient-to-r from-green-400 to-blue-500 text-white p-3 rounded-lg mb-3">
+                            <i class="fas fa-image text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg mb-2 transition-colors duration-300">图片和链接</h3>
+                        <p class="text-gray-600 text-sm transition-colors duration-300">插入图片和创建超链接</p>
+                        <img src="https://picsum.photos/300/150?random=11" alt="图片和链接示例预览" class="w-full h-24 object-cover rounded mt-2 border">
+                    </div>
+                    
+                    <!-- 示例3 -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer transform hover:-translate-y-1" onclick="loadExample(3)">
+                        <div class="bg-gradient-to-r from-red-400 to-pink-500 text-white p-3 rounded-lg mb-3">
+                            <i class="fas fa-table text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg mb-2 transition-colors duration-300">表格制作</h3>
+                        <p class="text-gray-600 text-sm transition-colors duration-300">创建数据表格</p>
+                        <img src="https://picsum.photos/300/150?random=12" alt="表格制作示例预览" class="w-full h-24 object-cover rounded mt-2 border">
+                    </div>
+                    
+                    <!-- 示例4 -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer transform hover:-translate-y-1" onclick="loadExample(4)">
+                        <div class="bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-3 rounded-lg mb-3">
+                            <i class="fas fa-list text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg mb-2 transition-colors duration-300">列表样式</h3>
+                        <p class="text-gray-600 text-sm transition-colors duration-300">有序和无序列表</p>
+                        <img src="https://picsum.photos/300/150?random=13" alt="列表样式示例预览" class="w-full h-24 object-cover rounded mt-2 border">
+                    </div>
+                    
+                    <!-- 示例5 -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer transform hover:-translate-y-1" onclick="loadExample(5)">
+                        <div class="bg-gradient-to-r from-purple-400 to-indigo-500 text-white p-3 rounded-lg mb-3">
+                            <i class="fas fa-font text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg mb-2 transition-colors duration-300">文字样式</h3>
+                        <p class="text-gray-600 text-sm transition-colors duration-300">粗体、斜体、下划线</p>
+                        <img src="https://picsum.photos/300/150?random=14" alt="文字样式示例预览" class="w-full h-24 object-cover rounded mt-2 border">
+                    </div>
+                    
+                    <!-- 示例6 -->
+                    <div class="border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer transform hover:-translate-y-1" onclick="loadExample(6)">
+                        <div class="bg-gradient-to-r from-indigo-400 to-purple-500 text-white p-3 rounded-lg mb-3">
+                            <i class="fas fa-palette text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-lg mb-2 transition-colors duration-300">CSS样式</h3>
+                        <p class="text-gray-600 text-sm transition-colors duration-300">添加颜色和布局</p>
+                        <img src="https://picsum.photos/300/150?random=15" alt="CSS样式示例预览" class="w-full h-24 object-cover rounded mt-2 border">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 学习资源区域 -->
+        <section id="resources-section" class="hidden fade-in">
+            <div class="bg-white rounded-lg shadow-lg p-6 transition-colors duration-300">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 transition-colors duration-300">
+                    <i class="fas fa-external-link-alt mr-2"></i>学习资源推荐
+                </h2>
+                
+                <div class="space-y-4">
+                    <div class="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-all cursor-pointer transform hover:-translate-y-1">
+                        <div class="bg-blue-100 p-3 rounded-lg mr-4 transition-colors duration-300">
+                            <i class="fas fa-book text-blue-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg transition-colors duration-300">
+                                <a href="https://developer.mozilla.org/zh-CN/docs/Web/HTML" target="_blank" class="text-blue-600 hover:underline transition-colors duration-300">MDN Web文档</a>
+                            </h3>
+                            <p class="text-gray-600 transition-colors duration-300">最权威的Web技术文档</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-all cursor-pointer transform hover:-translate-y-1">
+                        <div class="bg-green-100 p-3 rounded-lg mr-4 transition-colors duration-300">
+                            <i class="fas fa-code text-green-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg transition-colors duration-300">
+                                <a href="https://www.w3schools.com/html/" target="_blank" class="text-green-600 hover:underline transition-colors duration-300">W3Schools在线教程</a>
+                            </h3>
+                            <p class="text-gray-600 transition-colors duration-300">适合初学者的交互式教程</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center p-4 border rounded-lg hover:bg-gray-50 transition-all cursor-pointer transform hover:-translate-y-1">
+                        <div class="bg-purple-100 p-3 rounded-lg mr-4 transition-colors duration-300">
+                            <i class="fab fa-free-code-camp text-purple-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg transition-colors duration-300">
+                                <a href="https://www.freecodecamp.org/chinese/" target="_blank" class="text-purple-600 hover:underline transition-colors duration-300">freeCodeCamp</a>
+                            </h3>
+                            <p class="text-gray-600 transition-colors duration-300">免费的编程学习平台</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 预览全屏模态框 -->
+    <div id="previewModal" class="modal-backdrop">
+        <div class="modal-content relative">
+            <div class="modal-header">
+                <h3 id="modalTitle" class="font-semibold">网页预览</h3>
+                <button onclick="closePreviewFullscreen()" class="text-gray-500 hover:text-gray-700 transition-colors duration-300">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <iframe id="fullscreenPreview" class="modal-preview"></iframe>
+            </div>
+            <div class="resize-handle"></div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="bg-gray-800 text-white py-6 mt-12 transition-colors duration-300">
+        <div class="container mx-auto px-4 text-center">
+            <p>&copy; 2025 俞浩煊. 确实很帅!</p>
+            <p class="text-gray-400 text-sm mt-2">开始你的网页开发之旅!</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
