@@ -289,43 +289,178 @@ const examples = {
 </html>`
 };
 
+const defaultCode = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>我的第一个网页</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>欢迎学习HTML!</h1>
+        <div class="card">
+            <h2>HTML是什么?</h2>
+            <p>HTML是网页的基础构建语言，用于创建网页结构。</p>
+        </div>
+        <div class="card">
+            <h2>开始学习</h2>
+            <p>修改左侧代码，然后点击运行按钮查看效果!</p>
+        </div>
+        <div class="card">
+            <h2>参考示例</h2>
+            <p>点击导航栏学习示例参考学习!</p>
+        </div>
+    </div>
+</body>
+</html>`;
+
+const theme_selector = document.getElementById('theme-selector');
+
 // 主题切换功能
 function setTheme(theme) {
     document.body.className = document.body.className.replace(/theme-\w+/g, '');
     document.body.classList.add(`theme-${theme}`);
     localStorage.setItem('editorTheme', theme);
     
-    // 同步两个主题选择器
-    document.getElementById('theme-selector').value = theme;
-    document.getElementById('mobile-theme-selector').value = theme;
+    theme_selector.value = theme;
     
     // 更新语法高亮
     updateCodeDisplay();
 }
 
 // 主题选择器事件
-document.getElementById('theme-selector').addEventListener('change', function() {
-    setTheme(this.value);
-});
-
-document.getElementById('mobile-theme-selector').addEventListener('change', function() {
+theme_selector.addEventListener('change', function() {
     setTheme(this.value);
 });
 
 
-// 更新代码显示（带语法高亮）
-function updateCodeDisplay() {
-    const textarea = document.getElementById('html-code');
-    const codeDisplay = document.getElementById('code-display');
-    const code = textarea.value;
+const codeInput = document.getElementById('html-code');
+const highlightOutput = document.getElementById('highlightOutput');
+const charCount = document.getElementById('charCount');
+const lineCount = document.getElementById('lineCount');
+
+codeInput.addEventListener('input', updateHighlight);
+codeInput.addEventListener('scroll', syncScroll);
+codeInput.addEventListener('keydown', handleTab);
+
+function syncScroll() {
+    highlightOutput.scrollTop = codeInput.scrollTop;
+    highlightOutput.scrollLeft = codeInput.scrollLeft;
+}
+
+function updateHighlight() {
+    var theme = 'theme-' + theme_selector.value;
+    const code = codeInput.value;
     
-    // 应用语法高亮
-    codeDisplay.textContent = code;
-    hljs.highlightElement(codeDisplay);
+    // 更新字符和行数统计
+    charCount.textContent = `字符数: ${code.length}`;
+    lineCount.textContent = `行数: ${code.split('\n').length}`;
     
-    // 保持滚动位置同步
-    codeDisplay.scrollTop = textarea.scrollTop;
-    codeDisplay.scrollLeft = textarea.scrollLeft;
+    try {
+        // 语法高亮处理
+        let highlighted = code
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, '<br>')
+            .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
+            .replace(/  /g, '&nbsp;&nbsp;');
+
+        // 处理DOCTYPE声明
+        highlighted = highlighted.replace(
+            /&lt;!DOCTYPE\s+([^&]*)&gt;/gi, 
+            '&lt;<span class="doctype">!DOCTYPE $1</span>&gt;'
+        );
+
+        // 处理HTML标签
+        highlighted = highlighted.replace(
+            /&lt;(\/?)([a-zA-Z][a-zA-Z0-9-]*)(\s[^&]*?)?&gt;/g, 
+            function(match, slash, tagName, attributes) {
+                let result = `&lt;<span class="html-tag">${slash}${tagName}</span>`;
+                if (attributes) {
+                    // 处理属性
+                    let attrText = attributes.replace(
+                        /(\s)([a-zA-Z-][a-zA-Z0-9-:]*)=("([^"]*)"|'([^']*)'|([a-zA-Z0-9-]+))/g, 
+                        function(attrMatch, space, attrName, quote1, doubleValue, quote2, singleValue, unquotedValue) {
+                            let value = doubleValue || singleValue || unquotedValue;
+                            return `${space}<span class="html-attr">${attrName}</span>=<span class="html-value">"${value}"</span>`;
+                        }
+                    );
+                    result += attrText;
+                }
+                result += '&gt;';
+                return result;
+            }
+        );
+
+        // 处理HTML注释
+        highlighted = highlighted.replace(
+            /&lt;!--([\s\S]*?)--&gt;/g, 
+            '&lt;!--<span class="' + theme + ' html-comment">$1</span>--&gt;'
+        );
+
+        // 处理CSS注释
+        highlighted = highlighted.replace(
+            /\/\*([\s\S]*?)\*\//g, 
+            '<span class="' + theme + 'css-comment">/*$1*/</span>'
+        );
+
+        //highlighted = '<div class="' + theme + '"> ' + highlighted + '</div>';
+
+        highlightOutput.innerHTML = highlighted;
+    } catch (error) {
+        console.error('代码高亮错误:', error);
+        // 显示原始代码作为后备
+        highlightOutput.textContent = codeInput.value;
+    }  
+}
+
+function handleTab(e) {
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = codeInput.selectionStart;
+        const end = codeInput.selectionEnd;
+        
+        // 插入4个空格
+        codeInput.value = codeInput.value.substring(0, start) + '    ' + codeInput.value.substring(end);
+        
+        // 设置光标位置
+        codeInput.selectionStart = codeInput.selectionEnd = start + 4;
+        updateHighlight();
+    }
+}
+
+function clearCode() {
+    codeInput.value = '';
+    updateHighlight();
 }
 
 // 添加拖拽调整功能
@@ -339,14 +474,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const codeEditor = document.getElementById('html-code');
     codeEditor.style.height = 'auto';
     codeEditor.style.height = (codeEditor.scrollHeight) + 'px';
-
-    hljs.configure({
-        languages: ['html', 'css', 'javascript', 'xml']
-    });
     
     // 运行初始代码
     runCode();
     setupEventListeners();
+    updateHighlight();
     
     // 拖拽功能实现
     let startX, startY, startWidth, startHeight;
@@ -430,7 +562,8 @@ document.getElementById('previewModal').addEventListener('click', function(e) {
 function toggleEditorFullscreen() {
     const element = document.getElementById('editor-panel');
     const isFullscreen = element.classList.contains('fullscreen');
-    
+    updateHighlight();
+
     if (isFullscreen) {
         // 退出全屏
         if (document.exitFullscreen) {
@@ -484,6 +617,7 @@ function downloadCode() {
 document.addEventListener('DOMContentLoaded', function() {
     runCode(); // 初始运行示例代码
     setupEventListeners();
+    updateHighlight();
 });
 
 // 添加代码格式化功能
@@ -600,60 +734,9 @@ function runCode() {
 
 // 重置代码
 function resetCode() {
-    const defaultCode = `<!DOCTYPE html>
-<html>
-<head>
-    <title>我的第一个网页</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-        }
-        .container {
-            background: rgba(255,255,255,0.1);
-            padding: 30px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-        }
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .card {
-            background: white;
-            color: #333;
-            padding: 20px;
-            margin: 10px 0;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>欢迎学习HTML!</h1>
-        <div class="card">
-            <h2>HTML是什么?</h2>
-            <p>HTML是网页的基础构建语言，用于创建网页结构。</p>
-        </div>
-        <div class="card">
-            <h2>开始学习</h2>
-            <p>修改左侧代码，然后点击运行按钮查看效果!</p>
-        </div>
-        <div class="card">
-            <h2>参考示例</h2>
-            <p>点击导航栏学习示例参考学习!</p>
-        </div>
-    </div>
-</body>
-</html>`;
-    
-    document.getElementById('html-code').value = defaultCode;
+    codeInput.value = defaultCode;
     runCode();
+    updateHighlight();
     showMessage('代码已重置为默认示例', 'info');
 }
 
@@ -662,6 +745,7 @@ function loadExample(exampleId) {
     if (examples[exampleId]) {
         document.getElementById('html-code').value = examples[exampleId];
         runCode();
+        updateHighlight();
         showSection('editor');
         showMessage('示例代码已加载，点击运行查看效果', 'info');
     }
@@ -701,5 +785,6 @@ function loadFromStorage() {
 }
 
 // 初始化本地存储功能
-
 loadFromStorage();
+
+updateHighlight();
