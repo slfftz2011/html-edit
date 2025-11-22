@@ -1,0 +1,371 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML语法高亮编辑器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .editor-container {
+            width: 90%;
+            max-width: 1000px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .editor-header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .editor-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .editor-body {
+            position: relative;
+            height: 500px;
+        }
+
+        #codeInput {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            border: none;
+            resize: none;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            background: transparent;
+            color: transparent;
+            caret-color: #333;
+            z-index: 2;
+            outline: none;
+            tab-size: 4;
+        }
+
+        #highlightOutput {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            background: #f8f9fa;
+            color: #333;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .status-bar {
+            background: #ecf0f1;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            border-top: 1px solid #bdc3c7;
+        }
+
+        .tag {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .attribute {
+            color: #3498db;
+        }
+
+        .value {
+            color: #27ae60;
+        }
+
+        .comment {
+            color: #95a5a6;
+            font-style: italic;
+        }
+
+        .doctype {
+            color: #9b59b6;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: #2c3e50;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+
+        @media (max-width: 768px) {
+            .editor-container {
+                width: 95%;
+            }
+            
+            .editor-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .controls {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <div class="editor-header">
+            <div class="editor-title">HTML语法高亮编辑器</div>
+            <div class="controls">
+                <button class="btn" onclick="clearCode()">清空</button>
+                <button class="btn" onclick="copyCode()">复制</button>
+                <button class="btn" onclick="formatCode()">格式化</button>
+            </div>
+        </div>
+        
+        <div class="editor-body">
+            <textarea id="codeInput" placeholder="在此输入HTML代码..." spellcheck="false"></textarea>
+            <div id="highlightOutput"></div>
+        </div>
+        
+        <div class="status-bar">
+            <div id="charCount">字符数: 0</div>
+            <div id="lineCount">行数: 1</div>
+            <div>HTML语法高亮</div>
+        </div>
+    </div>
+
+    <script>
+        const codeInput = document.getElementById('codeInput');
+        const highlightOutput = document.getElementById('highlightOutput');
+        const charCount = document.getElementById('charCount');
+        const lineCount = document.getElementById('lineCount');
+
+        // 初始示例代码
+        const exampleCode = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>示例页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        /* 这是一个CSS注释 */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>欢迎使用HTML编辑器</h1>
+        <p>这是一个<strong>示例</strong>HTML文档。</p>
+        <!-- 这是一个HTML注释 -->
+        <button onclick="alert('Hello World!')">点击我</button>
+    </div>
+</body>
+</html>`;
+
+        codeInput.value = exampleCode;
+        updateHighlight();
+
+        codeInput.addEventListener('input', updateHighlight);
+        codeInput.addEventListener('scroll', syncScroll);
+        codeInput.addEventListener('keydown', handleTab);
+
+        function updateHighlight() {
+            const code = codeInput.value;
+            
+            // 更新字符和行数统计
+            charCount.textContent = `字符数: ${code.length}`;
+            lineCount.textContent = `行数: ${code.split('\n').length}`;
+            
+            // 语法高亮处理
+            let highlighted = code
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>')
+                .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
+                .replace(/  /g, '&nbsp;&nbsp;');
+
+            // 处理DOCTYPE声明
+            highlighted = highlighted.replace(
+                /&lt;!DOCTYPE\s+([^&]*)&gt;/gi, 
+                '&lt;<span class="doctype">!DOCTYPE $1</span>&gt;'
+            );
+
+            // 处理HTML标签
+            highlighted = highlighted.replace(
+                /&lt;(\/?)([a-zA-Z][a-zA-Z0-9-]*)(\s[^&]*?)?&gt;/g, 
+                function(match, slash, tagName, attributes) {
+                    let result = `&lt;<span class="tag">${slash}${tagName}</span>`;
+                    if (attributes) {
+                        // 处理属性
+                        let attrText = attributes.replace(
+                            /(\s)([a-zA-Z-][a-zA-Z0-9-:]*)=("([^"]*)"|'([^']*)'|([a-zA-Z0-9-]+))/g, 
+                            function(attrMatch, space, attrName, quote1, doubleValue, quote2, singleValue, unquotedValue) {
+                                let value = doubleValue || singleValue || unquotedValue;
+                                return `${space}<span class="attribute">${attrName}</span>=<span class="value">"${value}"</span>`;
+                            }
+                        );
+                        result += attrText;
+                    }
+                    result += '&gt;';
+                    return result;
+                }
+            );
+
+            // 处理HTML注释
+            highlighted = highlighted.replace(
+                /&lt;!--([\s\S]*?)--&gt;/g, 
+                '&lt;!--<span class="comment">$1</span>--&gt;'
+            );
+
+            // 处理CSS注释
+            highlighted = highlighted.replace(
+                /\/\*([\s\S]*?)\*\//g, 
+                '<span class="comment">/*$1*/</span>'
+            );
+
+            highlightOutput.innerHTML = highlighted;
+        }
+
+        function syncScroll() {
+            highlightOutput.scrollTop = codeInput.scrollTop;
+            highlightOutput.scrollLeft = codeInput.scrollLeft;
+        }
+
+        function handleTab(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = codeInput.selectionStart;
+                const end = codeInput.selectionEnd;
+                
+                // 插入4个空格
+                codeInput.value = codeInput.value.substring(0, start) + '    ' + codeInput.value.substring(end);
+                
+                // 设置光标位置
+                codeInput.selectionStart = codeInput.selectionEnd = start + 4;
+                updateHighlight();
+            }
+        }
+
+        function clearCode() {
+            codeInput.value = '';
+            updateHighlight();
+        }
+
+        function copyCode() {
+            codeInput.select();
+            document.execCommand('copy');
+            
+            // 显示复制成功提示
+            showTooltip('代码已复制到剪贴板');
+        }
+
+        function formatCode() {
+            // 简单的格式化逻辑
+            let formatted = codeInput.value
+                .replace(/>\s+</g, '>\n<')
+                .replace(/\n+/g, '\n')
+                .trim();
+            
+            codeInput.value = formatted;
+            updateHighlight();
+            showTooltip('代码已格式化');
+        }
+
+        function showTooltip(message) {
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = message;
+            document.body.appendChild(tooltip);
+            
+            // 定位在编辑器右上角
+            const editorRect = document.querySelector('.editor-container').getBoundingClientRect();
+            tooltip.style.top = (editorRect.top + 10) + 'px';
+            tooltip.style.left = (editorRect.right - tooltip.offsetWidth - 10) + 'px';
+            tooltip.style.opacity = '1';
+            
+            setTimeout(() => {
+                tooltip.style.opacity = '0';
+                setTimeout(() => {
+                    document.body.removeChild(tooltip);
+                }, 300);
+            }, 2000);
+        }
+
+        // 初始化滚动同步
+        syncScroll();
+    </script>
+</body>
+</html>
