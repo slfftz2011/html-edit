@@ -13,7 +13,7 @@
             transition: background-color 0.3s, color 0.3s;
         }
         .preview-frame {
-            min-height: 600px; /* 加长预览区 */
+            min-height: 600px;
             border: 1px solid #e5e7eb;
             transition: background-color 0.3s, border-color 0.3s;
         }
@@ -47,7 +47,7 @@
             display: flex;
             width: 100%;
             overflow: hidden;
-            height: calc(100vh - 220px); /* 加长编辑区和预览区 */
+            height: calc(100vh - 220px);
         }
         .editor-panel {
             flex: 1;
@@ -139,6 +139,11 @@
             right: 10px;
             z-index: 1001;
         }
+
+        .editor-body {
+            position: relative;
+            height: 500px;
+        }
         
         /* 主题样式 - 影响整个页面 */
         /* 语法高亮基础样式 */
@@ -166,7 +171,8 @@
         .theme-light .border-blue-200 { border-color: #bfdbfe; }
         .theme-light .text-blue-800 { color: #1e40af; }
         .theme-light .text-blue-700 { color: #1d4ed8; }
-        .theme-light .code-editor { background-color: #f8fafc; }
+        .theme-light .editor-body { background-color: #f8fafc; }
+        .theme-light #highlightOutput { background-color: #f8fafc; }
         .theme-light .modal-backdrop { background-color: rgba(0, 0, 0, 0.7); }
         /* 浅色主题语法高亮 */
         .theme-light .html-tag { color: #0033b3; }
@@ -177,6 +183,7 @@
         .theme-light .css-property { color: #0779e4; }
         .theme-light .css-value { color: #e25500; }
         .theme-light .css-selector { color: #6b0093; }
+        .theme-light .doctype { color: #0033b3; }
         
         /* 深色主题 */
         .theme-dark {
@@ -193,7 +200,8 @@
         .theme-dark .border-blue-200 { border-color: #3b82f6; }
         .theme-dark .text-blue-800 { color: #93c5fd; }
         .theme-dark .text-blue-700 { color: #bfdbfe; }
-        .theme-dark .code-editor { background-color: #0f172a; }
+        .theme-dark .editor-body { background-color: #0f172a; }
+        .theme-dark #highlightOutput { background-color: #0f172a; }
         .theme-dark .modal-backdrop { background-color: rgba(0, 0, 0, 0.9); }
         /* 深色主题语法高亮 */
         .theme-dark .html-tag { color: #38b2ac; }
@@ -204,6 +212,7 @@
         .theme-dark .css-property { color: #60a5fa; }
         .theme-dark .css-value { color: #a7f3d0; }
         .theme-dark .css-selector { color: #c084fc; }
+        .theme-dark .doctype { color: #38b2ac; }
         
         /* 明亮主题 */
         .theme-solarized {
@@ -220,7 +229,8 @@
         .theme-solarized .border-blue-200 { border-color: #9cc0e7; }
         .theme-solarized .text-blue-800 { color: #003366; }
         .theme-solarized .text-blue-700 { color: #004488; }
-        .theme-solarized .code-editor { background-color: #fdf6e3; }
+        .theme-solarized .editor-body { background-color: #fdf6e3; }
+        .theme-solarized #highlightOutput { background-color: #fdf6e3; }
         .theme-solarized .modal-backdrop { background-color: rgba(131, 148, 150, 0.7); }
         /* 明亮主题语法高亮 */
         .theme-solarized .html-tag { color: #268bd2; }
@@ -231,12 +241,8 @@
         .theme-solarized .css-property { color: #2aa198; }
         .theme-solarized .css-value { color: #d33682; }
         .theme-solarized .css-selector { color: #859900; }
+        .theme-solarized .doctype { color: #268bd2; }
         
-
-        .hljs-tag { color: #22863a; }
-        .hljs-attr { color: #6f42c1; }
-        .hljs-string { color: #032f62; }
-        .hljs-comment { color: #6a737d; }
 
         /* 响应式布局优化 */
         @media (max-width: 768px) {
@@ -263,15 +269,6 @@
                 min-width: 90%;
                 min-height: 300px;
             }
-            .mobile-menu {
-                display: none;
-                flex-direction: column;
-                gap: 10px;
-                margin-top: 10px;
-            }
-            .mobile-menu.show {
-                display: flex;
-            }
         }
         @media (max-width: 480px) {
             .grid-cols-1 md:grid-cols-2 lg:grid-cols-3 {
@@ -282,6 +279,114 @@
                 gap: 10px;
                 align-items: flex-start;
             }
+        }
+
+        
+        #html-code, #highlightOutput {
+            max-height: calc(100vh - 500px);
+            overflow-y: auto;
+            resize: none;
+        }
+
+        .editor-container {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-editor-wrapper {
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 确保滚动条样式一致 */
+        #html-code::-webkit-scrollbar, 
+        #highlightOutput::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #html-code::-webkit-scrollbar-thumb,
+        #highlightOutput::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+
+        #html-code {
+            position: relative;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            border: none;
+            resize: none;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            background: transparent;
+            color: transparent;
+            caret-color: #333;
+            z-index: 2;
+            outline: none;
+            tab-size: 4;
+            transition: color 0.3s ease, background-color 0.3s ease;
+        }
+
+        #highlightOutput {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            
+            overflow: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .status-bar {
+            background: #ecf0f1;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            border-top: 1px solid #bdc3c7;
+        }
+
+
+        /* 全屏模式下的编辑区优化 */
+        #editor-panel.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999;
+            background: white;
+        }
+
+        /* 全屏时隐藏不必要的元素 */
+        #editor-panel.fullscreen .editor-toolbar
+        {
+            display: none;
+        }
+
+        /* 全屏编辑区内容区域最大化 */
+        #editor-panel.fullscreen .code-editor-wrapper {
+            height: calc(100vh - 60px) !important;
+        }
+
+        #editor-panel.fullscreen #html-code,
+        #editor-panel.fullscreen #highlightOutput {
+            height: calc(100vh - 80px) !important;
+            max-height: none !important;
         }
     </style>
 </head>
@@ -362,13 +467,16 @@
                                 <!-- button onclick="formatCode()" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
                                     <i class="fas fa-indent mr-1"></i>格式化
                                 </button -->
-                                <button onclick="resetCode()" class="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
+                                <button onclick="resetCode()" class="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600">
                                     <i class="fas fa-redo mr-1"></i>重置
                                 </button>
-                                <button onclick="downloadCode()" class="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600">
+                                <button onclick="clearCode()" class="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
+                                    <i class="fas fa-broom mr-1"></i>清空
+                                </button>
+                                <button onclick="downloadCode()" class="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600">
                                     <i class="fas fa-download mr-1"></i>下载
                                 </button>
-                                <button onclick="toggleEditorFullscreen()" class="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
+                                <button onclick="toggleEditorFullscreen()" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
                                     <i class="fas fa-expand mr-1"></i>全屏编辑
                                 </button>
                                 <button onclick="runCode()" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
@@ -379,7 +487,9 @@
                         <div class="text-xs text-gray-500 mb-2 transition-colors duration-300">
                             <i class="fas fa-keyboard mr-1"></i>快捷键: Ctrl+Enter 运行代码 | 自动保存已启用
                         </div>
-                        <textarea id="html-code" class="code-editor w-full flex-grow p-4 border rounded-lg resize-none overflow-auto" spellcheck="false">
+
+                        <div class="editor-body">
+                            <textarea id="html-code" class="code-editor w-full flex-grow p-4 border rounded-lg resize-none overflow-auto" placeholder="在此输入代码..." spellcheck="false">
 <!DOCTYPE html>
 <html>
 <head>
@@ -431,8 +541,16 @@
     </div>
 </body>
 </html>
-                        </textarea>
-                        
+                            </textarea>
+                            <div id="highlightOutput"></div>
+                        </div>
+
+                        <div class="status-bar">
+                            <div id="charCount">字符数: 0</div>
+                            <div id="lineCount">行数: 1</div>
+                            <div>HTML语法高亮已启用</div>
+                        </div>
+
                         <!-- 代码提示 -->
                         <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 transition-colors duration-300">
                             <h3 class="font-semibold text-blue-800 mb-2 transition-colors duration-300">
@@ -608,9 +726,7 @@
             <p class="text-gray-400 text-sm mt-2">开始你的网页开发之旅!</p>
         </div>
     </footer>
+
     <script src="./script.js"></script>
 </body>
-
 </html>
-
-
