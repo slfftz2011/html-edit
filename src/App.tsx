@@ -8,6 +8,7 @@ import { useTheme } from './hooks/useTheme';
 import { useDraft } from './hooks/useDraft';
 import { useHotkey } from './hooks/useHotkey';
 import { INITIAL_CODE, EXAMPLES } from './data/examples';
+import { RESOURCES } from './data/resources';
 
 export default function App() {
   const { theme, setTheme, monacoTheme } = useTheme();
@@ -18,30 +19,51 @@ export default function App() {
   const run = useCallback(() => setRunKey((k) => k + 1), []);
   useHotkey({ key: 'Enter', ctrl: true }, run);
 
-  const reset = () => setCode(INITIAL_CODE);
-  const clear = () => { clearDraft(); setCode(''); };
+  const reset = () => {
+    clearDraft();
+    setCode(INITIAL_CODE);
+  };
+
+  const clear = () => {
+    clearDraft();
+    setCode('');
+  };
+
+  const loadExample = (exampleCode: string) => {
+    clearDraft();
+    setCode(exampleCode);
+  };
 
   const download = () => {
-    const blob = new Blob([code], { type: 'text/html' });
+    const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = 'index.html';
     a.click();
-    URL.revokeObjectURL(a.href);
+    URL.revokeObjectURL(url);
   };
 
   const fullscreen = () => {
     const el = containerRef.current;
     if (!el) return;
-    document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen();
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      el.requestFullscreen();
+    }
   };
 
   return (
     <div className="app" ref={containerRef}>
       <Toolbar
-        onRun={run} onReset={reset} onClear={clear}
-        onDownload={download} onFullscreen={fullscreen}
-        theme={theme} setTheme={setTheme}
+        onRun={run}
+        onReset={reset}
+        onClear={clear}
+        onDownload={download}
+        onFullscreen={fullscreen}
+        theme={theme}
+        setTheme={setTheme}
       />
       <main className="workspace">
         <section className="editor-pane">
@@ -52,7 +74,11 @@ export default function App() {
         </section>
       </main>
       <StatusBar code={code} />
-      <ResourceSection examples={EXAMPLES} />
+      <ResourceSection
+        examples={EXAMPLES}
+        resources={RESOURCES}
+        onLoadExample={loadExample}
+      />
     </div>
   );
 }

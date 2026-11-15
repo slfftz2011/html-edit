@@ -1,22 +1,33 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const KEY = 'html-edit:draft';
 
 export function useDraft(initial: string) {
-  const [code, setCode] = useState(
+  const [code, setCode] = useState<string>(
     () => localStorage.getItem(KEY) ?? initial,
   );
-  const timer = useRef<number>();
+  const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    clearTimeout(timer.current);
+    if (timer.current !== undefined) {
+      clearTimeout(timer.current);
+    }
     timer.current = window.setTimeout(() => {
       localStorage.setItem(KEY, code);
     }, 300);
-    return () => clearTimeout(timer.current);
+    return () => {
+      if (timer.current !== undefined) {
+        clearTimeout(timer.current);
+      }
+    };
   }, [code]);
 
-  const clearDraft = () => localStorage.removeItem(KEY);
+  const clearDraft = useCallback(() => {
+    if (timer.current !== undefined) {
+      clearTimeout(timer.current);
+    }
+    localStorage.removeItem(KEY);
+  }, []);
 
   return { code, setCode, clearDraft };
 }
