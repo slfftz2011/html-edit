@@ -1,84 +1,140 @@
-import { useCallback, useRef, useState } from 'react';
-import { CodeEditor } from './components/CodeEditor';
-import { PreviewPane } from './components/PreviewPane';
-import { Toolbar } from './components/Toolbar';
-import { StatusBar } from './components/StatusBar';
-import { ResourceSection } from './components/ResourceSection';
-import { useTheme } from './hooks/useTheme';
-import { useDraft } from './hooks/useDraft';
-import { useHotkey } from './hooks/useHotkey';
-import { INITIAL_CODE, EXAMPLES } from './data/examples';
-import { RESOURCES } from './data/resources';
+import { useState, useEffect } from 'react'
+import { loadConfig } from './lib/storage'
+import type { RepoConfig } from './types'
+import SettingsPage from './pages/SettingsPage'
+import FileListPage from './pages/FileListPage'
+import EditorPage from './pages/EditorPage'
+import DraftsPage from './pages/DraftsPage'
+import HelpPage from './pages/HelpPage'
+import AboutPage from './pages/AboutPage'
+import ImageListPage from './pages/ImageListPage'
+
+type BackTo = 'files' | 'drafts'
+
+type Page =
+  | { name: 'settings' }
+  | { name: 'files' }
+  | { name: 'drafts' }
+  | { name: 'images' }
+  | { name: 'help'; from: 'files' | 'settings' }
+  | { name: 'about' }
+  | { name: 'editor'; path: string; isNew: boolean; backTo: BackTo }
 
 export default function App() {
-  const { theme, setTheme, monacoTheme } = useTheme();
-  const { code, setCode, clearDraft } = useDraft(INITIAL_CODE);
-  const [runKey, setRunKey] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [initial] = useState<RepoConfig | null>(() => {
+    const c = loadConfig()
+    return c.token ? c : null
+  })
+  const [config, setConfig] = useState<RepoConfig | null>(initial)
+  const [page, setPage] = useState<Page>(
+    initial ? { name: 'files' } : { name: 'settings' },
+  )
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  const run = useCallback(() => setRunKey((k) => k + 1), []);
-  useHotkey({ key: 'Enter', ctrl: true }, run);
-
-  const reset = () => {
-    clearDraft();
-    setCode(INITIAL_CODE);
-  };
-
-  const clear = () => {
-    clearDraft();
-    setCode('');
-  };
-
-  const loadExample = (exampleCode: string) => {
-    clearDraft();
-    setCode(exampleCode);
-  };
-
-  const download = () => {
-    const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'index.html';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const fullscreen = () => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      el.requestFullscreen();
+  // 返回手势拦截逻辑
+  useEffect(() => {
+    // 如果不是首页，就压入一个历史记录
+    if (page.name !== 'files' && page.name !== 'settings' && page.name !== 'help') {
+      window.history.pushState({ page: page.name }, '')
     }
-  };
 
+    const handlePopState = () => {
+      // 用户触发了返回
+      if (page.name === 'files' || (page.name === 'settings' && config) || (page.name === 'help' && !config)) {
+        return // 允许退出
+      }
+      
+      if (page.name === 'editor') {
+        if (page.backTo === 'drafts') setPage({ name: 'drafts' })
+        else setPage({ name: 'files' })
+        setRefreshKey(k => k + 1)
+      } else if (page.name === 'help') {
+        setPage(page.from === 'settings' ? { name: 'settings' } : { name: 'files' })
+      } else {
+        setPage({ name: 'files' })
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [page, config])
+
+  function openEditor(path: string, isNew: boolean, backTo: BackTo) {
+    setPage({ name: 'editor', path, isNew, backTo })
+  }
+
+  // 👇 核心修复点 1：优先渲染 Help 页
+  if (page.name === 'help') {
+    return (
+      <div className="animate-fade-in" key="help">
+        <HelpPage
+          onBack={() => setPage(page.from === 'settings' ? { name: 'settings' } : { name: 'files' })}
+        />
+      </div>
+    )
+  }
+
+  // 👇 核心修复点 2：如果未配置或者主动打开了设置页，渲染设置页
+  if (!config || page.name === 'settings') {
+    return (
+      <div className="animate-fade-in" key="settings">
+        <SettingsPage
+          initial={config}
+          onSaved={cfg => {
+            setConfig(cfg)
+            setPage({ name: 'files' })
+          }}
+          onCancel={config ? () => setPage({ name: 'files' }) : undefined}
+          onHelp={() => setPage({ name: 'help', from: 'settings' })}
+        />
+      </div>
+    )
+  }
+
+  // 下面的渲染必须是已经配置过的状态
   return (
-    <div className="app" ref={containerRef}>
-      <Toolbar
-        onRun={run}
-        onReset={reset}
-        onClear={clear}
-        onDownload={download}
-        onFullscreen={fullscreen}
-        theme={theme}
-        setTheme={setTheme}
-      />
-      <main className="workspace">
-        <section className="editor-pane">
-          <CodeEditor value={code} onChange={setCode} theme={monacoTheme} />
-        </section>
-        <section className="preview-pane">
-          <PreviewPane html={code} runKey={runKey} />
-        </section>
-      </main>
-      <StatusBar code={code} />
-      <ResourceSection
-        examples={EXAMPLES}
-        resources={RESOURCES}
-        onLoadExample={loadExample}
-      />
+    <div className="animate-fade-in" key={page.name}>
+      {page.name === 'editor' && (
+        <EditorPage
+          config={config}
+          path={page.path}
+          isNew={page.isNew}
+          onBack={() => {
+            if (page.backTo === 'drafts') setPage({ name: 'drafts' })
+            else setPage({ name: 'files' })
+            setRefreshKey(k => k + 1)
+          }}
+          onSaved={() => setRefreshKey(k => k + 1)}
+        />
+      )}
+      
+      {page.name === 'drafts' && (
+        <DraftsPage
+          onBack={() => setPage({ name: 'files' })}
+          onRestore={(path, isNew) => openEditor(path, isNew, 'drafts')}
+        />
+      )}
+
+      {page.name === 'images' && (
+        <ImageListPage config={config} onBack={() => setPage({ name: 'files' })} />
+      )}
+
+      {page.name === 'about' && (
+        <AboutPage onBack={() => setPage({ name: 'files' })} />
+      )}
+
+      {page.name === 'files' && (
+        <FileListPage
+          key={refreshKey}
+          config={config}
+          onOpenSettings={() => setPage({ name: 'settings' })}
+          onOpenDrafts={() => setPage({ name: 'drafts' })}
+          onOpenImages={() => setPage({ name: 'images' })}
+          onOpenHelp={() => setPage({ name: 'help', from: 'files' })}
+          onOpenAbout={() => setPage({ name: 'about' })}
+          onOpenFile={(path, isNew = false) => openEditor(path, isNew, 'files')}
+        />
+      )}
     </div>
-  );
+  )
 }
